@@ -21,15 +21,24 @@ async def download_video(req: DownloadRequest):
 
     try:
         result = subprocess.run(
-            ["ytagent", "download", url, "--output", out_dir, "--format", "best[height<=720]/best"],
+            ["ytagent", "download", url, "--out-dir", out_dir, "--format", "best[height<=720]/best"],
             capture_output=True,
             text=True,
             timeout=60,
             check=True
         )
+
+        # ytagent downloads to out_dir
         files = os.listdir(out_dir)
         if not files:
-            raise HTTPException(status_code=500, detail="No files downloaded")
+            # Fallback: ytagent might use default 'downloads' dir
+            default_downloads = "downloads"
+            if os.path.isdir(default_downloads) and os.listdir(default_downloads):
+                files = os.listdir(default_downloads)
+                out_dir = default_downloads
+            else:
+                raise HTTPException(status_code=500, detail="No files downloaded")
+
         file_path = os.path.join(out_dir, files[0])
         size = os.path.getsize(file_path)
 
@@ -46,3 +55,4 @@ async def download_video(req: DownloadRequest):
         raise HTTPException(status_code=500, detail=f"ytagent error: {e.stderr}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+        
