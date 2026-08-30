@@ -1,0 +1,4 @@
+fastapi
+uvicorn
+ytagent-cli
+# https://www.youtube.com/shorts/su7zPpSnemI
