@@ -5,7 +5,7 @@ import os
 import json
 from pydantic import BaseModel
 
-app = FastAPI(title="ytagent Test Server")
+app = FastAPI(title="yt-dlp Render Test")
 
 class DownloadRequest(BaseModel):
     url: str
@@ -20,28 +20,25 @@ async def download_video(req: DownloadRequest):
     out_dir = tempfile.mkdtemp()
 
     try:
+        # Call ytagent CLI to download
         result = subprocess.run(
-            ["ytagent", "download", url, "--out-dir", out_dir, "--format", "best[height<=720]/best"],
+            ["ytagent", "download", url, "--output", out_dir, "--format", "best[height<=720]/best"],
             capture_output=True,
             text=True,
             timeout=60,
             check=True
         )
-
-        # ytagent downloads to out_dir
+        
+        # Parse JSON output (ytagent returns a JSON line with info)
+        # Actually, ytagent might return the info as stdout; let's assume it prints a JSON object.
+        # We'll just look for files.
         files = os.listdir(out_dir)
         if not files:
-            # Fallback: ytagent might use default 'downloads' dir
-            default_downloads = "downloads"
-            if os.path.isdir(default_downloads) and os.listdir(default_downloads):
-                files = os.listdir(default_downloads)
-                out_dir = default_downloads
-            else:
-                raise HTTPException(status_code=500, detail="No files downloaded")
-
+            raise HTTPException(status_code=500, detail="No files downloaded")
         file_path = os.path.join(out_dir, files[0])
         size = os.path.getsize(file_path)
 
+        # We can also parse the JSON info from stdout
         info = json.loads(result.stdout) if result.stdout else {}
         return {
             "status": "ok",
@@ -55,4 +52,3 @@ async def download_video(req: DownloadRequest):
         raise HTTPException(status_code=500, detail=f"ytagent error: {e.stderr}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-        
